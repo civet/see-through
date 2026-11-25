@@ -58,6 +58,9 @@ pip install torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128
 # pip install torch torchvision torchaudio \
 #   --index-url https://download.pytorch.org/whl/rocm7.2
 
+# macOS (Apple Silicon) users: install the default PyPI PyTorch build (with MPS support) instead:
+# pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0
+
 # 3. Install dependencies (includes common utilities and annotators)
 pip install -r requirements.txt
 
@@ -198,6 +201,26 @@ python inference/scripts/inference_psd_blockswap.py \
   --srcp assets/test_image.png \
   --save_to_psd \
 ```
+
+### macOS / Apple Silicon (MPS) Users
+
+`inference/scripts/inference_psd.py` automatically selects the best available device (`cuda` -> `mps` -> `cpu`), and supports specifying a device explicitly via `--device`:
+
+- **MPS Optimizations**: On Apple Silicon (`mps`), the pipeline automatically enables sliced scaled dot-product attention (`MPSSlicedAttnProcessor2_0`) and VAE slicing to avoid multi-gigabyte attention OOMs, unloads the LayerDiff pipeline before loading Marigold to halve peak unified memory usage, and safely handles Metal 5D tensor sorting limits in `TransparentVAE`.
+- **Usage** (Please adjust the resolution and step size based on your device's performance):
+
+```bash
+python inference/scripts/inference_psd.py \
+  --srcp assets/test_image.png \
+  --save_to_psd \
+  --resolution 1280 \
+  --resolution_depth 768 \
+  --inference_steps 30 \
+  --inference_steps_depth -1 \
+  --device mps
+```
+
+> **Note:** Do **not** pass `--group_offload` on Apple Silicon MPS—CPU and GPU share unified memory, so block offloading adds significant transfer overhead without reducing physical RAM usage. Keep `--inference_steps_depth -1` to use Marigold's optimal default steps.
 
 ### Preparing the dataset for training (e.g., Live2D Parsing)
 

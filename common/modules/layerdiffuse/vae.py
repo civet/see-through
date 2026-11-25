@@ -229,7 +229,12 @@ class TransparentVAEDecoder(torch.nn.Module):
             break
 
         result = torch.stack(result, dim=0)
-        median = torch.median(result, dim=0).values
+        if result.shape[0] == 1:
+            median = result[0]
+        elif result.device.type == 'mps' and result.dim() > 4:
+            median = torch.median(result.cpu(), dim=0).values.to(result.device)
+        else:
+            median = torch.median(result, dim=0).values
         return median
 
     @torch.no_grad()

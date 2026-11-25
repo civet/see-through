@@ -14,7 +14,14 @@ from tqdm import tqdm
 
 from utils.io_utils import find_all_imgs
 from utils import inference_utils
-from utils.inference_utils import apply_layerdiff, apply_marigold, further_extr
+from utils.inference_utils import (
+    apply_layerdiff,
+    apply_marigold,
+    further_extr,
+    resolve_device,
+    unload_layerdiff,
+    unload_marigold,
+)
 from utils.torch_utils import seed_everything
 
 if __name__ == '__main__':
@@ -35,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--tblr_split', action='store_true', help='try split parts (handwear, eyes, etc) into left-right components')
     parser.add_argument('--disable_progressbar', action='store_true', help='hide progressbar')
     parser.add_argument('--group_offload', action='store_true')
+    parser.add_argument('--device', type=str, default=None, help="device to run inference on ('cuda', 'mps', 'cpu'). Defaults to auto-detect.")
     args = parser.parse_args()
     srcp = args.srcp
 
@@ -43,18 +51,47 @@ if __name__ == '__main__':
     else:
         imglist = [srcp]
 
-    for srcp in tqdm(imglist):
+    resolved_device = resolve_device(args.device)
+    if args.group_offload and resolved_device == 'mps':
+        print('Warning: --group_offload is not recommended on Apple Silicon MPS (unified memory) and can significantly slow down inference.')
 
+    for img_path in tqdm(imglist, desc='layerdiff'):
         seed_everything(args.seed)
-
         print('running layerdiff...')
-        apply_layerdiff(srcp, args.repo_id_layerdiff, save_dir=args.save_dir, seed=args.seed, vae_ckpt=args.vae_ckpt, unet_ckpt=args.unet_ckpt, \
-            resolution=args.resolution, disable_progressbar=args.disable_progressbar, num_inference_steps=args.inference_steps, group_offload=args.group_offload)
+        apply_layerdiff(
+            img_path,
+            args.repo_id_layerdiff,
+            save_dir=args.save_dir,
+            seed=args.seed,
+            vae_ckpt=args.vae_ckpt,
+            unet_ckpt=args.unet_ckpt,
+            resolution=args.resolution,
+            disable_progressbar=args.disable_progressbar,
+            num_inference_steps=args.inference_steps,
+            group_offload=args.group_offload,
+            device=resolved_device,
+        )
 
+    unload_layerdiff()
+
+    for img_path in tqdm(imglist, desc='marigold'):
+        seed_everything(args.seed)
         print('running marigold...')
-        apply_marigold(srcp, args.repo_id_depth, save_dir=args.save_dir, seed=args.seed, disable_progressbar=args.disable_progressbar, \
-            resolution=args.resolution_depth, num_inference_steps=args.inference_steps_depth, group_offload=args.group_offload)
+        apply_marigold(
+            img_path,
+            args.repo_id_depth,
+            save_dir=args.save_dir,
+            seed=args.seed,
+            disable_progressbar=args.disable_progressbar,
+            resolution=args.resolution_depth,
+            num_inference_steps=args.inference_steps_depth,
+            group_offload=args.group_offload,
+            device=resolved_device,
+        )
 
-        srcname = osp.basename(osp.splitext(srcp)[0])
+    unload_marigold()
+
+    for img_path in tqdm(imglist, desc='extract_psd'):
+        srcname = osp.basename(osp.splitext(img_path)[0])
         saved = osp.join(args.save_dir, srcname)
         further_extr(saved, rotate=False, save_to_psd=args.save_to_psd, tblr_split=args.tblr_split)
