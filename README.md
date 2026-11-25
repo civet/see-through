@@ -58,8 +58,9 @@ pip install torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128
 # pip install torch torchvision torchaudio \
 #   --index-url https://download.pytorch.org/whl/rocm7.2
 
-# macOS (Apple Silicon) users: install the default PyPI PyTorch build (with MPS support) instead:
-# pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0
+# macOS (Apple Silicon) users: install the default PyPI PyTorch build (with MPS support) instead.
+# Using torch>=2.15.0 is recommended (~2x faster steady-state MPS sampling than 2.8.0):
+# pip install "torch>=2.15.0" torchvision torchaudio "numpy==2.2.6" "pillow==12.1.1"
 
 # 3. Install dependencies (includes common utilities and annotators)
 pip install -r requirements.txt
